@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Калькулятор масок</title>
+
+<!-- Иконка (встроенная SVG, отдельный файл не нужен) -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='110' fill='%230f172a'/><rect x='96' y='96' width='140' height='140' rx='20' fill='none' stroke='%2338bdf8' stroke-width='16'/><rect x='276' y='96' width='140' height='140' rx='20' fill='%2338bdf8' opacity='0.35'/><rect x='96' y='276' width='140' height='140' rx='20' fill='%2338bdf8' opacity='0.35'/><rect x='276' y='276' width='140' height='140' rx='20' fill='none' stroke='%2338bdf8' stroke-width='16'/><circle cx='166' cy='166' r='18' fill='%2338bdf8'/><circle cx='346' cy='346' r='18' fill='%2338bdf8'/><line x1='220' y1='292' x2='292' y2='220' stroke='%2338bdf8' stroke-width='16' stroke-linecap='round'/></svg>">
+<meta name="theme-color" content="#0f172a">
+
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --accent:#38bdf8; --text:#e2e8f0; --muted:#94a3b8; --ok:#4ade80; --warn:#fbbf24; --err:#f87171; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, sans-serif; background:var(--bg); color:var(--text); padding:16px; line-height:1.5; }
+  h1 { font-size:1.4rem; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:.85rem; margin-bottom:16px; }
+  .card { background:var(--card); border-radius:12px; padding:16px; margin-bottom:16px; }
+  label { display:block; font-size:.85rem; color:var(--muted); margin-bottom:4px; }
+  input, button { width:100%; padding:10px 12px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:var(--text); font-size:1rem; margin-bottom:10px; }
+  input:focus { outline:none; border-color:var(--accent); }
+  button { background:var(--accent); color:#0f172a; font-weight:600; border:none; cursor:pointer; }
+  button:active { opacity:.8; }
+  .result { font-family: ui-monospace, monospace; font-size:.9rem; white-space:pre-wrap; word-break:break-word; }
+  .result .ok { color:var(--ok); }
+  .result .warn { color:var(--warn); }
+  .result .err { color:var(--err); }
+  .row { display:flex; gap:8px; }
+  .row > * { flex:1; }
+  .tabs { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+  .tab { flex:1 1 auto; padding:8px; text-align:center; border-radius:8px; background:#334155; font-size:.8rem; cursor:pointer; user-select:none; }
+  .tab.active { background:var(--accent); color:#0f172a; font-weight:600; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+
+<h1>🌐 Калькулятор масок</h1>
+<div class="sub">IPv4 · CIDR · VLSM · Wildcard · Пересечения</div>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" data-tab="net">Сеть</div>
+  <div class="tab" data-tab="cidr">CIDR↔Маска</div>
+  <div class="tab" data-tab="hosts">Хосты</div>
+  <div class="tab" data-tab="vlsm">VLSM</div>
+  <div class="tab" data-tab="wild">Wildcard</div>
+  <div class="tab" data-tab="over">Пересечение</div>
+</div>
+
+<div class="card tab-content" id="tab-net">
+  <label>IP/маска (например, 192.168.1.10/24)</label>
+  <input id="ipInput" value="192.168.1.10/24">
+  <button onclick="calcNetwork()">Рассчитать</button>
+  <div class="result" id="netResult"></div>
+</div>
+
+<div class="card tab-content hidden" id="tab-cidr">
+  <label>CIDR (0-32) → Маска</label>
+  <div class="row"><input id="cidrInput" value="24" type="number" min="0" max="32"><button onclick="cidrToMask()">→</button></div>
+  <div class="result" id="cidrResult"></div>
+  <hr style="border-color:#334155; margin:16px 0;">
+  <label>Маска → CIDR</label>
+  <div class="row"><input id="maskInput" value="255.255.255.0"><button onclick="maskToCidr()">→</button></div>
+  <div class="result" id="maskResult"></div>
+</div>
+
+<div class="card tab-content hidden" id="tab-hosts">
+  <label>Нужное число хостов</label>
+  <input id="hostsInput" type="number" min="1" value="50">
+  <button onclick="hostsToMask()">Подобрать маску</button>
+  <div class="result" id="hostsResult"></div>
+</div>
+
+<div class="card tab-content hidden" id="tab-vlsm">
+  <label>Базовая сеть</label>
+  <input id="vlsmBase" value="192.168.1.0/24">
+  <label>Требования по хостам (через запятую)</label>
+  <input id="vlsmReqs" value="50, 20, 10, 2">
+  <button onclick="calcVlsm()">Разбить</button>
+  <div class="result" id="vlsmResult"></div>
+</div>
+
+<div class="card tab-content hidden" id="tab-wild">
+  <label>Маска или CIDR</label>
+  <input id="wildInput" value="24">
+  <button onclick="calcWildcard()">Получить Wildcard</button>
+  <div class="result" id="wildResult"></div>
+</div>
+
+<div class="card tab-content hidden" id="tab-over">
+  <label>Сеть 1</label>
+  <input id="over1" value="192.168.1.0/24">
+  <label>Сеть 2</label>
+  <input id="over2" value="192.168.1.128/25">
+  <button onclick="checkOverlap()">Проверить</button>
+  <div class="result" id="overResult"></div>
+</div>
+
+<script>
+function ipToInt(ip) {
+  const p = ip.split('.').map(Number);
+  if (p.length !== 4 || p.some(x => isNaN(x) || x < 0 || x > 255)) throw new Error('Некорректный IP');
+  return ((p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]) >>> 0;
+}
+function intToIp(n) { return [(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255].join('.'); }
+function cidrToMaskInt(c) { if (c<0||c>32) throw new Error('CIDR 0-32'); return c===0?0:(0xFFFFFFFF<<(32-c))>>>0; }
+function maskIntToCidr(m) { let c=0,x=m>>>0; while(x&0x80000000){c++;x=(x<<1)>>>0;} if(x!==0) throw new Error('Маска не непрерывная'); return c; }
+function parseMask(s) { s=s.trim(); if(/^\d+$/.test(s)) return cidrToMaskInt(Number(s)); return ipToInt(s)>>>0; }
+function parseNetwork(s) {
+  s=s.trim(); let ip,cidr;
+  if(s.includes('/')){const [a,b]=s.split('/');ip=ipToInt(a.trim());cidr=Number(b);}else{ip=ipToInt(s);cidr=32;}
+  if(cidr<0||cidr>32) throw new Error('CIDR 0-32');
+  const mask=cidrToMaskInt(cidr), network=(ip&mask)>>>0, broadcast=(network|(~mask>>>0))>>>0;
+  return {ip,cidr,mask,network,broadcast,size:Math.pow(2,32-cidr)};
+}
+function calcNetwork() {
+  const out=document.getElementById('netResult');
+  try{const n=parseNetwork(document.getElementById('ipInput').value);
+    const t=n.size>2?n.size-2:0;
+    out.innerHTML=`<span class="ok">Сеть:</span> ${intToIp(n.network)}\nМаска: ${intToIp(n.mask)}\nCIDR: /${n.cidr}\nBroadcast: ${intToIp(n.broadcast)}\nПервый хост: ${n.size>2?intToIp(n.network+1):'—'}\nПоследний хост: ${n.size>2?intToIp(n.broadcast-1):'—'}\nВсего хостов: ${t}`;
+  }catch(e){out.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}
+}
+function cidrToMask(){const o=document.getElementById('cidrResult');try{o.innerHTML=`<span class="ok">Маска:</span> ${intToIp(cidrToMaskInt(Number(document.getElementById('cidrInput').value)))}`;}catch(e){o.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}}
+function maskToCidr(){const o=document.getElementById('maskResult');try{o.innerHTML=`<span class="ok">CIDR:</span> /${maskIntToCidr(parseMask(document.getElementById('maskInput').value))}`;}catch(e){o.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}}
+function hostsToMask(){const o=document.getElementById('hostsResult');try{const n=Number(document.getElementById('hostsInput').value);if(n<1)throw new Error('Хостов > 0');const bits=Math.ceil(Math.log2(n+2)),c=32-bits;if(c<0)throw new Error('Слишком много');o.innerHTML=`<span class="ok">Маска:</span> /${c} (${intToIp(cidrToMaskInt(c))})\nДоступно хостов: ${Math.pow(2,bits)-2}`;}catch(e){o.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}}
+function calcVlsm(){const o=document.getElementById('vlsmResult');try{const base=parseNetwork(document.getElementById('vlsmBase').value);const reqs=document.getElementById('vlsmReqs').value.split(',').map(s=>Number(s.trim())).filter(n=>!isNaN(n)&&n>0);if(!reqs.length)throw new Error('Укажите требования');reqs.sort((a,b)=>b-a);let cur=base.network,end=base.broadcast,html='';for(const r of reqs){const bits=Math.ceil(Math.log2(r+2)),c=32-bits;if(c<base.cidr)throw new Error(`Подсеть для ${r} больше базовой`);const size=Math.pow(2,bits);if(cur%size!==0)cur+=size-(cur%size);if(cur+size-1>end)throw new Error('Не хватает адресов');html+=`<span class="ok">/${c}</span> ${intToIp(cur)} – ${intToIp(cur+size-1)} (${intToIp(cidrToMaskInt(c))}) — нужно ${r}, доступно ${size-2}\n`;cur+=size;}o.innerHTML=html;}catch(e){o.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}}
+function calcWildcard(){const o=document.getElementById('wildResult');try{const m=parseMask(document.getElementById('wildInput').value);o.innerHTML=`<span class="ok">Wildcard:</span> ${intToIp((~m)>>>0)}\nCIDR: /${maskIntToCidr(m)}`;}catch(e){o.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}}
+function checkOverlap(){const o=document.getElementById('overResult');try{const n1=parseNetwork(document.getElementById('over1').value),n2=parseNetwork(document.getElementById('over2').value);const ov=n1.network<=n2.broadcast&&n2.network<=n1.broadcast;o.innerHTML=ov?`<span class="warn">⚠️ Пересекаются!</span>\n${intToIp(n1.network)}/${n1.cidr} и ${intToIp(n2.network)}/${n2.cidr}.`:`<span class="ok">✅ Не пересекаются.</span>\n${intToIp(n1.network)}/${n1.cidr} и ${intToIp(n2.network)}/${n2.cidr}.`;}catch(e){o.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}}
+document.getElementById('tabs').addEventListener('click',e=>{if(!e.target.classList.contains('tab'))return;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(c=>c.classList.add('hidden'));e.target.classList.add('active');document.getElementById('tab-'+e.target.dataset.tab).classList.remove('hidden');});
+calcNetwork();
+</script>
+</body>
+</html>
