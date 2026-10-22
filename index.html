@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Калькулятор масок</title>
 
-<!-- Иконка (встроенная SVG, отдельный файл не нужен) -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='110' fill='%230f172a'/><rect x='96' y='96' width='140' height='140' rx='20' fill='none' stroke='%2338bdf8' stroke-width='16'/><rect x='276' y='96' width='140' height='140' rx='20' fill='%2338bdf8' opacity='0.35'/><rect x='96' y='276' width='140' height='140' rx='20' fill='%2338bdf8' opacity='0.35'/><rect x='276' y='276' width='140' height='140' rx='20' fill='none' stroke='%2338bdf8' stroke-width='16'/><circle cx='166' cy='166' r='18' fill='%2338bdf8'/><circle cx='346' cy='346' r='18' fill='%2338bdf8'/><line x1='220' y1='292' x2='292' y2='220' stroke='%2338bdf8' stroke-width='16' stroke-linecap='round'/></svg>">
 <meta name="theme-color" content="#0f172a">
 
@@ -21,6 +20,8 @@
   input:focus { outline:none; border-color:var(--accent); }
   button { background:var(--accent); color:#0f172a; font-weight:600; border:none; cursor:pointer; }
   button:active { opacity:.8; }
+  button.danger { background:#7f1d1d; color:#fecaca; }
+  button.secondary { background:#334155; color:var(--text); }
   .result { font-family: ui-monospace, monospace; font-size:.9rem; white-space:pre-wrap; word-break:break-word; }
   .result .ok { color:var(--ok); }
   .result .warn { color:var(--warn); }
@@ -31,12 +32,32 @@
   .tab { flex:1 1 auto; padding:8px; text-align:center; border-radius:8px; background:#334155; font-size:.8rem; cursor:pointer; user-select:none; }
   .tab.active { background:var(--accent); color:#0f172a; font-weight:600; }
   .hidden { display:none; }
+  .history-item { border-bottom:1px solid #334155; padding:10px 0; }
+  .history-item:last-child { border-bottom:none; }
+  .history-meta { font-size:.75rem; color:var(--muted); margin-bottom:4px; }
+  .history-text { font-family: ui-monospace, monospace; font-size:.82rem; white-space:pre-wrap; word-break:break-word; }
+  .history-actions { display:flex; gap:6px; margin-top:6px; }
+  .history-actions button { font-size:.75rem; padding:4px 8px; margin:0; width:auto; }
+  .empty { color:var(--muted); font-size:.9rem; text-align:center; padding:20px 0; }
+
+  /* Стили для печати / PDF */
+  @media print {
+    body { background:#fff; color:#000; padding:0; }
+    .tabs, .tab-content, button, input, .sub, #historyList, .no-print { display:none !important; }
+    #printArea { display:block !important; }
+    h1 { color:#000; }
+    .print-item { border:1px solid #ccc; padding:12px; margin-bottom:12px; border-radius:6px; page-break-inside:avoid; }
+    .print-item .meta { font-size:11px; color:#555; margin-bottom:6px; }
+    .print-item pre { font-family: ui-monospace, monospace; font-size:12px; white-space:pre-wrap; word-break:break-word; margin:0; }
+    @page { margin:14mm; }
+  }
+  #printArea { display:none; }
 </style>
 </head>
 <body>
 
 <h1>🌐 Калькулятор масок</h1>
-<div class="sub">IPv4 · CIDR · VLSM · Wildcard · Пересечения</div>
+<div class="sub">IPv4 · CIDR · VLSM · Wildcard · Пересечения · История</div>
 
 <div class="tabs" id="tabs">
   <div class="tab active" data-tab="net">Сеть</div>
@@ -45,8 +66,10 @@
   <div class="tab" data-tab="vlsm">VLSM</div>
   <div class="tab" data-tab="wild">Wildcard</div>
   <div class="tab" data-tab="over">Пересечение</div>
+  <div class="tab" data-tab="history">История</div>
 </div>
 
+<!-- 1. Сеть -->
 <div class="card tab-content" id="tab-net">
   <label>IP/маска (например, 192.168.1.10/24)</label>
   <input id="ipInput" value="192.168.1.10/24">
@@ -54,6 +77,7 @@
   <div class="result" id="netResult"></div>
 </div>
 
+<!-- 2. CIDR <-> Маска -->
 <div class="card tab-content hidden" id="tab-cidr">
   <label>CIDR (0-32) → Маска</label>
   <div class="row"><input id="cidrInput" value="24" type="number" min="0" max="32"><button onclick="cidrToMask()">→</button></div>
@@ -64,6 +88,7 @@
   <div class="result" id="maskResult"></div>
 </div>
 
+<!-- 3. Хосты -->
 <div class="card tab-content hidden" id="tab-hosts">
   <label>Нужное число хостов</label>
   <input id="hostsInput" type="number" min="1" value="50">
@@ -71,6 +96,7 @@
   <div class="result" id="hostsResult"></div>
 </div>
 
+<!-- 4. VLSM -->
 <div class="card tab-content hidden" id="tab-vlsm">
   <label>Базовая сеть</label>
   <input id="vlsmBase" value="192.168.1.0/24">
@@ -80,6 +106,7 @@
   <div class="result" id="vlsmResult"></div>
 </div>
 
+<!-- 5. Wildcard -->
 <div class="card tab-content hidden" id="tab-wild">
   <label>Маска или CIDR</label>
   <input id="wildInput" value="24">
@@ -87,6 +114,7 @@
   <div class="result" id="wildResult"></div>
 </div>
 
+<!-- 6. Пересечение -->
 <div class="card tab-content hidden" id="tab-over">
   <label>Сеть 1</label>
   <input id="over1" value="192.168.1.0/24">
@@ -96,38 +124,217 @@
   <div class="result" id="overResult"></div>
 </div>
 
+<!-- 7. История -->
+<div class="card tab-content hidden" id="tab-history">
+  <div class="row" style="margin-bottom:12px;">
+    <button class="secondary" onclick="exportPdf()">📄 Экспорт в PDF</button>
+    <button class="danger" onclick="clearHistory()">🗑 Очистить</button>
+  </div>
+  <div id="historyList"></div>
+</div>
+
+<!-- Область для печати (скрыта на экране) -->
+<div id="printArea">
+  <h1>Отчёт: Калькулятор масок сетей</h1>
+  <div id="printContent"></div>
+</div>
+
 <script>
-function ipToInt(ip) {
-  const p = ip.split('.').map(Number);
-  if (p.length !== 4 || p.some(x => isNaN(x) || x < 0 || x > 255)) throw new Error('Некорректный IP');
-  return ((p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]) >>> 0;
+// ===== Утилиты IPv4 (как раньше) =====
+function ipToInt(ip){const p=ip.split('.').map(Number);if(p.length!==4||p.some(x=>isNaN(x)||x<0||x>255))throw new Error('Некорректный IP');return((p[0]<<24)|(p[1]<<16)|(p[2]<<8)|p[3])>>>0;}
+function intToIp(n){return[(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255].join('.');}
+function cidrToMaskInt(c){if(c<0||c>32)throw new Error('CIDR 0-32');return c===0?0:(0xFFFFFFFF<<(32-c))>>>0;}
+function maskIntToCidr(m){let c=0,x=m>>>0;while(x&0x80000000){c++;x=(x<<1)>>>0;}if(x!==0)throw new Error('Маска не непрерывная');return c;}
+function parseMask(s){s=s.trim();if(/^\d+$/.test(s))return cidrToMaskInt(Number(s));return ipToInt(s)>>>0;}
+function parseNetwork(s){s=s.trim();let ip,cidr;if(s.includes('/')){const[a,b]=s.split('/');ip=ipToInt(a.trim());cidr=Number(b);}else{ip=ipToInt(s);cidr=32;}if(cidr<0||cidr>32)throw new Error('CIDR 0-32');const mask=cidrToMaskInt(cidr),network=(ip&mask)>>>0,broadcast=(network|(~mask>>>0))>>>0;return{ip,cidr,mask,network,broadcast,size:Math.pow(2,32-cidr)};}
+
+// ===== История =====
+const STORAGE_KEY = 'subnetcalc_history_v1';
+const MAX_HISTORY = 50;
+
+function loadHistory(){
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+  catch { return []; }
 }
-function intToIp(n) { return [(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255].join('.'); }
-function cidrToMaskInt(c) { if (c<0||c>32) throw new Error('CIDR 0-32'); return c===0?0:(0xFFFFFFFF<<(32-c))>>>0; }
-function maskIntToCidr(m) { let c=0,x=m>>>0; while(x&0x80000000){c++;x=(x<<1)>>>0;} if(x!==0) throw new Error('Маска не непрерывная'); return c; }
-function parseMask(s) { s=s.trim(); if(/^\d+$/.test(s)) return cidrToMaskInt(Number(s)); return ipToInt(s)>>>0; }
-function parseNetwork(s) {
-  s=s.trim(); let ip,cidr;
-  if(s.includes('/')){const [a,b]=s.split('/');ip=ipToInt(a.trim());cidr=Number(b);}else{ip=ipToInt(s);cidr=32;}
-  if(cidr<0||cidr>32) throw new Error('CIDR 0-32');
-  const mask=cidrToMaskInt(cidr), network=(ip&mask)>>>0, broadcast=(network|(~mask>>>0))>>>0;
-  return {ip,cidr,mask,network,broadcast,size:Math.pow(2,32-cidr)};
+function saveHistory(arr){
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); } catch {}
 }
-function calcNetwork() {
+function addHistory(type, input, output){
+  const arr = loadHistory();
+  arr.unshift({
+    id: Date.now() + '_' + Math.random().toString(36).slice(2,8),
+    type, input, output,
+    time: new Date().toISOString()
+  });
+  if (arr.length > MAX_HISTORY) arr.length = MAX_HISTORY;
+  saveHistory(arr);
+  renderHistory();
+}
+function renderHistory(){
+  const list = document.getElementById('historyList');
+  const arr = loadHistory();
+  if (!arr.length){
+    list.innerHTML = '<div class="empty">История пуста. Сделайте расчёт — и он появится здесь.</div>';
+    return;
+  }
+  list.innerHTML = arr.map(item => {
+    const d = new Date(item.time);
+    const ts = d.toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const safeOut = escapeHtml(item.output);
+    return `<div class="history-item">
+      <div class="history-meta">${ts} · ${escapeHtml(item.type)} · вход: ${escapeHtml(item.input)}</div>
+      <div class="history-text">${safeOut}</div>
+      <div class="history-actions">
+        <button class="secondary" onclick="copyHistory('${item.id}')">Копировать</button>
+        <button class="secondary" onclick="deleteHistory('${item.id}')">Удалить</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function copyHistory(id){
+  const item = loadHistory().find(x => x.id === id);
+  if (!item) return;
+  const text = `[${item.type}] ${item.input}\n${item.output}`;
+  navigator.clipboard?.writeText(text).then(()=>alert('Скопировано в буфер')).catch(()=>alert('Не удалось скопировать'));
+}
+function deleteHistory(id){
+  saveHistory(loadHistory().filter(x => x.id !== id));
+  renderHistory();
+}
+function clearHistory(){
+  if (!confirm('Очистить всю историю?')) return;
+  saveHistory([]);
+  renderHistory();
+}
+
+// ===== Экспорт в PDF (через печать браузера) =====
+function exportPdf(){
+  const arr = loadHistory();
+  if (!arr.length){ alert('История пуста — нечего экспортировать.'); return; }
+  const content = arr.map(item => {
+    const d = new Date(item.time);
+    const ts = d.toLocaleString('ru-RU');
+    return `<div class="print-item">
+      <div class="meta">${escapeHtml(ts)} · ${escapeHtml(item.type)} · вход: ${escapeHtml(item.input)}</div>
+      <pre>${escapeHtml(item.output)}</pre>
+    </div>`;
+  }).join('');
+  document.getElementById('printContent').innerHTML = content;
+  window.print();
+}
+
+// ===== Расчёты с записью в историю =====
+function calcNetwork(){
   const out=document.getElementById('netResult');
-  try{const n=parseNetwork(document.getElementById('ipInput').value);
+  try{
+    const input=document.getElementById('ipInput').value;
+    const n=parseNetwork(input);
     const t=n.size>2?n.size-2:0;
+    const text=`Сеть: ${intToIp(n.network)}\nМаска: ${intToIp(n.mask)}\nCIDR: /${n.cidr}\nBroadcast: ${intToIp(n.broadcast)}\nПервый хост: ${n.size>2?intToIp(n.network+1):'—'}\nПоследний хост: ${n.size>2?intToIp(n.broadcast-1):'—'}\nВсего хостов: ${t}`;
     out.innerHTML=`<span class="ok">Сеть:</span> ${intToIp(n.network)}\nМаска: ${intToIp(n.mask)}\nCIDR: /${n.cidr}\nBroadcast: ${intToIp(n.broadcast)}\nПервый хост: ${n.size>2?intToIp(n.network+1):'—'}\nПоследний хост: ${n.size>2?intToIp(n.broadcast-1):'—'}\nВсего хостов: ${t}`;
+    addHistory('Сеть', input, text);
   }catch(e){out.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}
 }
-function cidrToMask(){const o=document.getElementById('cidrResult');try{o.innerHTML=`<span class="ok">Маска:</span> ${intToIp(cidrToMaskInt(Number(document.getElementById('cidrInput').value)))}`;}catch(e){o.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}}
-function maskToCidr(){const o=document.getElementById('maskResult');try{o.innerHTML=`<span class="ok">CIDR:</span> /${maskIntToCidr(parseMask(document.getElementById('maskInput').value))}`;}catch(e){o.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}}
-function hostsToMask(){const o=document.getElementById('hostsResult');try{const n=Number(document.getElementById('hostsInput').value);if(n<1)throw new Error('Хостов > 0');const bits=Math.ceil(Math.log2(n+2)),c=32-bits;if(c<0)throw new Error('Слишком много');o.innerHTML=`<span class="ok">Маска:</span> /${c} (${intToIp(cidrToMaskInt(c))})\nДоступно хостов: ${Math.pow(2,bits)-2}`;}catch(e){o.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}}
-function calcVlsm(){const o=document.getElementById('vlsmResult');try{const base=parseNetwork(document.getElementById('vlsmBase').value);const reqs=document.getElementById('vlsmReqs').value.split(',').map(s=>Number(s.trim())).filter(n=>!isNaN(n)&&n>0);if(!reqs.length)throw new Error('Укажите требования');reqs.sort((a,b)=>b-a);let cur=base.network,end=base.broadcast,html='';for(const r of reqs){const bits=Math.ceil(Math.log2(r+2)),c=32-bits;if(c<base.cidr)throw new Error(`Подсеть для ${r} больше базовой`);const size=Math.pow(2,bits);if(cur%size!==0)cur+=size-(cur%size);if(cur+size-1>end)throw new Error('Не хватает адресов');html+=`<span class="ok">/${c}</span> ${intToIp(cur)} – ${intToIp(cur+size-1)} (${intToIp(cidrToMaskInt(c))}) — нужно ${r}, доступно ${size-2}\n`;cur+=size;}o.innerHTML=html;}catch(e){o.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}}
-function calcWildcard(){const o=document.getElementById('wildResult');try{const m=parseMask(document.getElementById('wildInput').value);o.innerHTML=`<span class="ok">Wildcard:</span> ${intToIp((~m)>>>0)}\nCIDR: /${maskIntToCidr(m)}`;}catch(e){o.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}}
-function checkOverlap(){const o=document.getElementById('overResult');try{const n1=parseNetwork(document.getElementById('over1').value),n2=parseNetwork(document.getElementById('over2').value);const ov=n1.network<=n2.broadcast&&n2.network<=n1.broadcast;o.innerHTML=ov?`<span class="warn">⚠️ Пересекаются!</span>\n${intToIp(n1.network)}/${n1.cidr} и ${intToIp(n2.network)}/${n2.cidr}.`:`<span class="ok">✅ Не пересекаются.</span>\n${intToIp(n1.network)}/${n1.cidr} и ${intToIp(n2.network)}/${n2.cidr}.`;}catch(e){o.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}}
-document.getElementById('tabs').addEventListener('click',e=>{if(!e.target.classList.contains('tab'))return;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(c=>c.classList.add('hidden'));e.target.classList.add('active');document.getElementById('tab-'+e.target.dataset.tab).classList.remove('hidden');});
+function cidrToMask(){
+  const o=document.getElementById('cidrResult');
+  try{
+    const input=document.getElementById('cidrInput').value;
+    const mask=intToIp(cidrToMaskInt(Number(input)));
+    o.innerHTML=`<span class="ok">Маска:</span> ${mask}`;
+    addHistory('CIDR→Маска', input, `Маска: ${mask}`);
+  }catch(e){o.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}
+}
+function maskToCidr(){
+  const o=document.getElementById('maskResult');
+  try{
+    const input=document.getElementById('maskInput').value;
+    const c=maskIntToCidr(parseMask(input));
+    o.innerHTML=`<span class="ok">CIDR:</span> /${c}`;
+    addHistory('Маска→CIDR', input, `CIDR: /${c}`);
+  }catch(e){o.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}
+}
+function hostsToMask(){
+  const o=document.getElementById('hostsResult');
+  try{
+    const input=document.getElementById('hostsInput').value;
+    const n=Number(input);
+    if(n<1)throw new Error('Хостов > 0');
+    const bits=Math.ceil(Math.log2(n+2)),c=32-bits;
+    if(c<0)throw new Error('Слишком много');
+    const text=`Маска: /${c} (${intToIp(cidrToMaskInt(c))})\nДоступно хостов: ${Math.pow(2,bits)-2}`;
+    o.innerHTML=`<span class="ok">Маска:</span> /${c} (${intToIp(cidrToMaskInt(c))})\nДоступно хостов: ${Math.pow(2,bits)-2}`;
+    addHistory('Хосты→Маска', input, text);
+  }catch(e){o.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}
+}
+function calcVlsm(){
+  const o=document.getElementById('vlsmResult');
+  try{
+    const baseInput=document.getElementById('vlsmBase').value;
+    const reqsInput=document.getElementById('vlsmReqs').value;
+    const base=parseNetwork(baseInput);
+    const reqs=reqsInput.split(',').map(s=>Number(s.trim())).filter(n=>!isNaN(n)&&n>0);
+    if(!reqs.length)throw new Error('Укажите требования');
+    reqs.sort((a,b)=>b-a);
+    let cur=base.network,end=base.broadcast,html='',text='';
+    for(const r of reqs){
+      const bits=Math.ceil(Math.log2(r+2)),c=32-bits;
+      if(c<base.cidr)throw new Error(`Подсеть для ${r} больше базовой`);
+      const size=Math.pow(2,bits);
+      if(cur%size!==0)cur+=size-(cur%size);
+      if(cur+size-1>end)throw new Error('Не хватает адресов');
+      const line=`/${c} ${intToIp(cur)} – ${intToIp(cur+size-1)} (${intToIp(cidrToMaskInt(c))}) — нужно ${r}, доступно ${size-2}`;
+      html+=`<span class="ok">/${c}</span> ${intToIp(cur)} – ${intToIp(cur+size-1)} (${intToIp(cidrToMaskInt(c))}) — нужно ${r}, доступно ${size-2}\n`;
+      text+=line+'\n';
+      cur+=size;
+    }
+    o.innerHTML=html;
+    addHistory('VLSM', `${baseInput} → ${reqsInput}`, text.trim());
+  }catch(e){o.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}
+}
+function calcWildcard(){
+  const o=document.getElementById('wildResult');
+  try{
+    const input=document.getElementById('wildInput').value;
+    const m=parseMask(input);
+    const wc=intToIp((~m)>>>0);
+    const c=maskIntToCidr(m);
+    const text=`Wildcard: ${wc}\nCIDR: /${c}`;
+    o.innerHTML=`<span class="ok">Wildcard:</span> ${wc}\nCIDR: /${c}`;
+    addHistory('Wildcard', input, text);
+  }catch(e){o.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}
+}
+function checkOverlap(){
+  const o=document.getElementById('overResult');
+  try{
+    const i1=document.getElementById('over1').value,i2=document.getElementById('over2').value;
+    const n1=parseNetwork(i1),n2=parseNetwork(i2);
+    const ov=n1.network<=n2.broadcast&&n2.network<=n1.broadcast;
+    const text=ov
+      ?`Пересекаются!\n${intToIp(n1.network)}/${n1.cidr} и ${intToIp(n2.network)}/${n2.cidr} имеют общие адреса.`
+      :`Не пересекаются.\n${intToIp(n1.network)}/${n1.cidr} и ${intToIp(n2.network)}/${n2.cidr}.`;
+    o.innerHTML=ov
+      ?`<span class="warn">⚠️ Пересекаются!</span>\n${intToIp(n1.network)}/${n1.cidr} и ${intToIp(n2.network)}/${n2.cidr}.`
+      :`<span class="ok">✅ Не пересекаются.</span>\n${intToIp(n1.network)}/${n1.cidr} и ${intToIp(n2.network)}/${n2.cidr}.`;
+    addHistory('Пересечение', `${i1} ↔ ${i2}`, text);
+  }catch(e){o.innerHTML=`<span class="err">Ошибка: ${e.message}</span>`;}
+}
+
+// ===== Вкладки =====
+document.getElementById('tabs').addEventListener('click',e=>{
+  if(!e.target.classList.contains('tab'))return;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.add('hidden'));
+  e.target.classList.add('active');
+  document.getElementById('tab-'+e.target.dataset.tab).classList.remove('hidden');
+  if(e.target.dataset.tab==='history') renderHistory();
+});
+
+// Инициализация
 calcNetwork();
+renderHistory();
 </script>
 </body>
 </html>
