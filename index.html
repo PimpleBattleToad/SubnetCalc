@@ -5,8 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Калькулятор масок</title>
 
-<link rel="icon" <link rel="manifest" href="manifest.json"> viewBox='0 0 512 512'><rect width='512' height='512' rx='110' fill='%230f172a'/><rect x='96' y='96' width='140' height='140' rx='20' fill='none' stroke='%2338bdf8' stroke-width='16'/><rect x='276' y='96' width='140' height='140' rx='20' fill='%2338bdf8' opacity='0.35'/><rect x='96' y='276' width='140' height='140' rx='20' fill='%2338bdf8' opacity='0.35'/><rect x='276' y='276' width='140' height='140' rx='20' fill='none' stroke='%2338bdf8' stroke-width='16'/><circle cx='166' cy='166' r='18' fill='%2338bdf8'/><circle cx='346' cy='346' r='18' fill='%2338bdf8'/><line x1='220' y1='292' x2='292' y2='220' stroke='%2338bdf8' stroke-width='16' stroke-linecap='round'/></svg>">
+<!-- Иконка -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='110' fill='%230f172a'/><rect x='96' y='96' width='140' height='140' rx='20' fill='none' stroke='%2338bdf8' stroke-width='16'/><rect x='276' y='96' width='140' height='140' rx='20' fill='%2338bdf8' opacity='0.35'/><rect x='96' y='276' width='140' height='140' rx='20' fill='%2338bdf8' opacity='0.35'/><rect x='276' y='276' width='140' height='140' rx='20' fill='none' stroke='%2338bdf8' stroke-width='16'/><circle cx='166' cy='166' r='18' fill='%2338bdf8'/><circle cx='346' cy='346' r='18' fill='%2338bdf8'/><line x1='220' y1='292' x2='292' y2='220' stroke='%2338bdf8' stroke-width='16' stroke-linecap='round'/></svg>">
 <meta name="theme-color" content="#0f172a">
+
+<!-- Подключение PWA-манифеста для полноэкранного режима -->
+<link rel="manifest" href="manifest.json">
 
 <style>
   :root { --bg:#0f172a; --card:#1e293b; --accent:#38bdf8; --text:#e2e8f0; --muted:#94a3b8; --ok:#4ade80; --warn:#fbbf24; --err:#f87171; }
@@ -140,7 +144,7 @@
 </div>
 
 <script>
-// ===== Утилиты IPv4 (как раньше) =====
+// ===== Утилиты IPv4 =====
 function ipToInt(ip){const p=ip.split('.').map(Number);if(p.length!==4||p.some(x=>isNaN(x)||x<0||x>255))throw new Error('Некорректный IP');return((p[0]<<24)|(p[1]<<16)|(p[2]<<8)|p[3])>>>0;}
 function intToIp(n){return[(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255].join('.');}
 function cidrToMaskInt(c){if(c<0||c>32)throw new Error('CIDR 0-32');return c===0?0:(0xFFFFFFFF<<(32-c))>>>0;}
